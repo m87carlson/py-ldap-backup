@@ -1,0 +1,38 @@
+#!/usr/bin/env python
+
+import os,time
+import subprocess
+import bz2
+
+backup_dir = "/data/db/backups"
+cmd = "/usr/local/sbin/slapcat"
+date = time.strftime('%Y-%m-%d_%H')
+target_file = backup_dir + "/ldapdb." + date + ".ldif"
+
+def backup_ldap( cmd, file ):
+    with open(file, "wb") as ldif_file:
+        subprocess.call(cmd, stdout=ldif_file)
+
+def compress_backup( file ):
+    data = open(file, "r")
+
+    bzip2_file = "%s.bz2" % file
+    output = bz2.BZ2File(bzip2_file, 'wb', compresslevel=3)
+    try:
+        output.writelines(data)
+    finally:
+        output.close
+
+    os.chmod(bzip2_file, 0600)
+    os.remove(file)
+
+def cleanup_old_backups():
+    now = time.time()
+    for f in os.listdir(backup_dir):
+        if os.stat(os.path.join(backup_dir,f)).st_mtime < now - ( 4 * 7 * 86400):
+            if os.path.isfile(f):
+                os.remove(os.path.join(backup_dir,f))
+
+backup_ldap(cmd, target_file)
+compress_backup(target_file)
+cleanup_old_backups()
